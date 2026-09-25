@@ -3,6 +3,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import Usuarios from './pages/Usuarios';
+import Roles from './pages/Roles';
+import ListaNegra from './pages/ListaNegra';
+import Vehiculos from './pages/Vehiculos';
 
 const RutaProtegida = ({ children }) => {
   const { autenticado, cargando } = useAuth();
@@ -42,6 +45,30 @@ function App() {
             element={
               <RutaProtegida>
                 <Usuarios />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/roles"
+            element={
+              <RutaProtegida>
+                <Roles />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/lista-negra"
+            element={
+              <RutaProtegida>
+                <ListaNegra />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/vehiculos"
+            element={
+              <RutaProtegida>
+                <Vehiculos />
               </RutaProtegida>
             }
           />

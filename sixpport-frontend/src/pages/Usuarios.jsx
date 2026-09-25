@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Search, Clock, ShieldCheck, UsersRound, UserCog, Activity } from 'lucide-react';
-import { getUsuarios } from '../services/api';
+import { Search, Clock, ShieldCheck, UsersRound, UserCog, Activity, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { getUsuarios, createUsuario, updateUsuario, deleteUsuario, getRoles } from '../services/api';
+import Modal from '../components/Modal';
 
-// Datos complementarios de ejemplo para la UI
 const sedes = ['Norte-Alamar', 'Corporativa Central', 'Multisede', 'Sur-Industrial'];
 const horarios = ['06:00:15 UTC', '05:58:30 UTC', 'Ayer 18:24 UTC', '07:11:45 UTC', '04:32:10 UTC'];
 
@@ -17,10 +17,25 @@ const formatearRol = (rol) => {
 
 const Usuarios = () => {
   const [usuarios, setUsuarios] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [hora, setHora] = useState(new Date().toISOString().split('T')[1].split('.')[0] + ' UTC');
+
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [usuarioEditando, setUsuarioEditando] = useState(null);
+  const [modalEliminar, setModalEliminar] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+
+  const [form, setForm] = useState({
+    id_rol: '',
+    nombre_completo: '',
+    dni: '',
+    email: '',
+    password: '',
+    estado: 'Activo',
+  });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -29,25 +44,77 @@ const Usuarios = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const cargarDatos = async () => {
+    try {
+      setCargando(true);
+      const [dataUsuarios, dataRoles] = await Promise.all([getUsuarios(), getRoles()]);
+      const conDetalles = dataUsuarios.map((u, i) => ({
+        ...u,
+        sede: sedes[i % sedes.length],
+        ultimo_ingreso_fmt: horarios[i % horarios.length],
+      }));
+      setUsuarios(conDetalles);
+      setRoles(dataRoles);
+    } catch (err) {
+      setError('No se pudo cargar el listado de usuarios.');
+    } finally {
+      setCargando(false);
+    }
+  };
+
   useEffect(() => {
-    const cargar = async () => {
-      try {
-        const data = await getUsuarios();
-        // Enriquecer datos con sede/último ingreso de ejemplo
-        const conDetalles = data.map((u, i) => ({
-          ...u,
-          sede: sedes[i % sedes.length],
-          ultimoIngreso: horarios[i % horarios.length],
-        }));
-        setUsuarios(conDetalles);
-      } catch (err) {
-        setError('No se pudo cargar el listado de usuarios.');
-      } finally {
-        setCargando(false);
-      }
-    };
-    cargar();
+    cargarDatos();
   }, []);
+
+  const abrirCrear = () => {
+    setUsuarioEditando(null);
+    setForm({ id_rol: roles[0]?.id_rol || '', nombre_completo: '', dni: '', email: '', password: '', estado: 'Activo' });
+    setModalAbierto(true);
+  };
+
+  const abrirEditar = (u) => {
+    setUsuarioEditando(u);
+    setForm({
+      id_rol: u.id_rol,
+      nombre_completo: u.nombre_completo,
+      dni: u.dni,
+      email: u.email,
+      password: '',
+      estado: u.estado,
+    });
+    setModalAbierto(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setGuardando(true);
+    try {
+      if (usuarioEditando) {
+        const payload = { ...form };
+        if (!payload.password) delete payload.password;
+        await updateUsuario(usuarioEditando.id_usuario, payload);
+      } else {
+        await createUsuario(form);
+      }
+      setModalAbierto(false);
+      await cargarDatos();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al guardar usuario');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleEliminar = async () => {
+    if (!modalEliminar) return;
+    try {
+      await deleteUsuario(modalEliminar.id_usuario);
+      setModalEliminar(null);
+      await cargarDatos();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al eliminar usuario');
+    }
+  };
 
   const filtrados = usuarios.filter((u) =>
     u.nombre_completo?.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -56,9 +123,9 @@ const Usuarios = () => {
   );
 
   const totalUsuarios = usuarios.length;
-  const vigilantesActivos = usuarios.filter((u) => u.rol === 'Vigilancia' && u.estado === 'Activo').length;
-  const rolesConfigurados = new Set(usuarios.map((u) => u.rol)).size;
-  const sesionesConcurrentes = 3; // Valor fijo de ejemplo
+  const vigilantesActivos = usuarios.filter((u) => u.rol === 'Vigilante Garita' && u.estado === 'Activo').length;
+  const rolesConfigurados = roles.length;
+  const sesionesConcurrentes = 3;
 
   return (
     <div className="space-y-6">
@@ -85,35 +152,18 @@ const Usuarios = () => {
 
       {/* Tarjetas de estadísticas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Usuarios"
-          value={totalUsuarios.toString().padStart(2, '0')}
-          sub="Cuentas activas en sistema"
-          color="cyan"
-          icon={UsersRound}
-        />
-        <StatCard
-          label="Vigilantes Activos"
-          value={vigilantesActivos.toString().padStart(2, '0')}
-          sub="En garitas de la sede"
-          color="orange"
-          icon={ShieldCheck}
-        />
-        <StatCard
-          label="Roles Configurados"
-          value={rolesConfigurados.toString().padStart(2, '0')}
-          sub="Perfiles jerárquicos"
-          color="purple"
-          icon={UserCog}
-        />
-        <StatCard
-          label="Sesiones Concurrentes"
-          value={sesionesConcurrentes.toString().padStart(2, '0')}
-          sub="Auditoría de firmas activas"
-          color="green"
-          icon={Activity}
-        />
+        <StatCard label="Total Usuarios" value={String(totalUsuarios).padStart(2, '0')} sub="Cuentas activas en sistema" color="cyan" icon={UsersRound} />
+        <StatCard label="Vigilantes Activos" value={String(vigilantesActivos).padStart(2, '0')} sub="En garitas de la sede" color="orange" icon={ShieldCheck} />
+        <StatCard label="Roles Configurados" value={String(rolesConfigurados).padStart(2, '0')} sub="Perfiles jerárquicos" color="purple" icon={UserCog} />
+        <StatCard label="Sesiones Concurrentes" value={String(sesionesConcurrentes).padStart(2, '0')} sub="Auditoría de firmas activas" color="green" icon={Activity} />
       </div>
+
+      {error && (
+        <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4" />
+          {error}
+        </div>
+      )}
 
       {/* Contenido principal */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -124,22 +174,29 @@ const Usuarios = () => {
               <h2 className="text-lg font-bold text-white">Control de Cuentas y Accesos de Personal</h2>
               <p className="text-sm text-sixx-muted">Gestión de identidades del equipo de seguridad</p>
             </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sixx-muted" />
-              <input
-                type="text"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar usuario..."
-                className="pl-9 pr-4 py-2 rounded-lg bg-[#0b0c10] border border-sixx-border text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none w-full sm:w-64"
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sixx-muted" />
+                <input
+                  type="text"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar usuario..."
+                  className="pl-9 pr-4 py-2 rounded-lg bg-[#0b0c10] border border-sixx-border text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none w-full sm:w-64"
+                />
+              </div>
+              <button
+                onClick={abrirCrear}
+                className="flex items-center gap-2 rounded-lg bg-sixx-orange hover:bg-orange-600 text-white text-sm font-semibold px-4 py-2 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Nuevo
+              </button>
             </div>
           </div>
 
           {cargando ? (
             <div className="text-center py-12 text-sixx-muted">Cargando personal...</div>
-          ) : error ? (
-            <div className="text-center py-12 text-red-400">{error}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -150,6 +207,7 @@ const Usuarios = () => {
                     <th className="pb-3 font-medium">Último Ingreso</th>
                     <th className="pb-3 font-medium">Sede</th>
                     <th className="pb-3 font-medium">Estado</th>
+                    <th className="pb-3 font-medium text-right pr-4">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -157,19 +215,31 @@ const Usuarios = () => {
                     <tr key={u.id_usuario} className="border-b border-sixx-border/50 hover:bg-white/[0.02]">
                       <td className="py-4 pl-4 font-medium text-white">{u.nombre_completo}</td>
                       <td className="py-4 text-sixx-gray">{formatearRol(u.rol)}</td>
-                      <td className="py-4 text-sixx-cyan font-mono">{u.ultimoIngreso}</td>
+                      <td className="py-4 text-sixx-cyan font-mono">{u.ultimo_ingreso_fmt}</td>
                       <td className="py-4 text-sixx-gray">{u.sede}</td>
                       <td className="py-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${
-                            u.estado === 'Activo'
-                              ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                              : 'bg-gray-500/10 border-gray-500/30 text-gray-400'
-                          }`}
-                        >
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${u.estado === 'Activo' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-gray-500/10 border-gray-500/30 text-gray-400'}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${u.estado === 'Activo' ? 'bg-green-400' : 'bg-gray-400'}`} />
                           {u.estado}
                         </span>
+                      </td>
+                      <td className="py-4 pr-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => abrirEditar(u)}
+                            className="p-1.5 rounded-lg hover:bg-white/10 text-sixx-gray hover:text-white transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setModalEliminar(u)}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-sixx-gray hover:text-red-400 transition-colors"
+                            title="Inactivar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -184,7 +254,6 @@ const Usuarios = () => {
 
         {/* Panel lateral */}
         <div className="space-y-6">
-          {/* Ficha operativa */}
           <div className="bg-sixx-panel border border-sixx-border rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-white">Ficha Operativa Vigilante</h3>
@@ -211,36 +280,134 @@ const Usuarios = () => {
             </div>
           </div>
 
-          {/* Añadir operador */}
           <div className="bg-sixx-panel border border-sixx-border rounded-xl p-6">
             <h3 className="font-bold text-white mb-4">Añadir Operador / Vigilante</h3>
             <form className="space-y-4">
               <div>
                 <label className="block text-xs text-sixx-muted mb-1.5">Nombre Completo</label>
-                <input
-                  type="text"
-                  placeholder="Ej. Carlos Fuentes L."
-                  className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none"
-                />
+                <input type="text" placeholder="Ej. Carlos Fuentes L." className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none" />
               </div>
               <div>
                 <label className="block text-xs text-sixx-muted mb-1.5">DNI</label>
-                <input
-                  type="text"
-                  placeholder="Ej. 18.245.922-1"
-                  className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none"
-                />
+                <input type="text" placeholder="Ej. 18.245.922-1" className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none" />
               </div>
-              <button
-                type="button"
-                className="w-full rounded-lg bg-sixx-orange hover:bg-orange-600 text-white font-semibold py-3 transition-colors"
-              >
+              <button type="button" className="w-full rounded-lg bg-sixx-orange hover:bg-orange-600 text-white font-semibold py-3 transition-colors">
                 Registrar Operador sin Auto-Registro
               </button>
             </form>
           </div>
         </div>
       </div>
+
+      {/* Modal Crear/Editar */}
+      <Modal titulo={usuarioEditando ? 'Editar Usuario' : 'Nuevo Usuario'} abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} maxWidth="max-w-md">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs text-sixx-muted mb-1.5">Nombre Completo</label>
+            <input
+              type="text"
+              value={form.nombre_completo}
+              onChange={(e) => setForm({ ...form, nombre_completo: e.target.value })}
+              required
+              className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-sixx-muted mb-1.5">DNI</label>
+              <input
+                type="text"
+                value={form.dni}
+                onChange={(e) => setForm({ ...form, dni: e.target.value })}
+                required
+                className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-sixx-muted mb-1.5">Rol</label>
+              <select
+                value={form.id_rol}
+                onChange={(e) => setForm({ ...form, id_rol: parseInt(e.target.value) })}
+                required
+                className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white focus:border-sixx-orange focus:outline-none"
+              >
+                {roles.map((r) => (
+                  <option key={r.id_rol} value={r.id_rol}>{r.nombre}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-sixx-muted mb-1.5">Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-sixx-muted mb-1.5">
+              {usuarioEditando ? 'Nueva Contraseña (dejar vacío para mantener)' : 'Contraseña'}
+            </label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              required={!usuarioEditando}
+              className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white placeholder-sixx-muted focus:border-sixx-orange focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-sixx-muted mb-1.5">Estado</label>
+            <select
+              value={form.estado}
+              onChange={(e) => setForm({ ...form, estado: e.target.value })}
+              className="w-full rounded-lg bg-[#0b0c10] border border-sixx-border px-4 py-2.5 text-sm text-white focus:border-sixx-orange focus:outline-none"
+            >
+              <option value="Activo">Activo</option>
+              <option value="Inactivo">Inactivo</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setModalAbierto(false)}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-sixx-gray hover:text-white transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={guardando}
+              className="px-4 py-2 rounded-lg bg-sixx-orange hover:bg-orange-600 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+            >
+              {guardando ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Eliminar */}
+      <Modal titulo="Inactivar Usuario" abierto={!!modalEliminar} onCerrar={() => setModalEliminar(null)} maxWidth="max-w-sm">
+        <p className="text-sm text-sixx-gray mb-6">
+          ¿Está seguro de inactivar al usuario <span className="text-white font-semibold">{modalEliminar?.nombre_completo}</span>? Esta acción lo deshabilitará del sistema.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => setModalEliminar(null)}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-sixx-gray hover:text-white transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleEliminar}
+            className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-sm font-semibold transition-colors"
+          >
+            Inactivar
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

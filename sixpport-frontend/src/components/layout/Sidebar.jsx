@@ -9,6 +9,8 @@ import {
   UsersRound,
   FileBarChart,
   XCircle,
+  Shield,
+  Car,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,14 +19,22 @@ const menuItems = [
   { label: 'Control de Accesos', icon: DoorOpen, to: '/accesos' },
   { label: 'Turnos y Novedades', icon: CalendarClock, to: '/turnos' },
   { label: 'Visitas Previas', icon: CalendarCheck, to: '/visitas' },
-  { label: 'Personas y Vehículos', icon: Users, to: '/personas' },
+  { label: 'Personas y Vehículos', icon: Car, to: '/vehiculos' },
   { label: 'Lista Negra (Alertas)', icon: ShieldAlert, to: '/lista-negra', badge: 3 },
-  { label: 'Usuarios y Roles', icon: UsersRound, to: '/usuarios' },
+  {
+    label: 'Usuarios y Roles',
+    icon: UsersRound,
+    to: '/usuarios',
+    subItems: [
+      { label: 'Usuarios', to: '/usuarios' },
+      { label: 'Roles y Permisos', to: '/roles' },
+    ],
+  },
   { label: 'Reportes', icon: FileBarChart, to: '/reportes' },
 ];
 
 const Sidebar = () => {
-  const { usuario, cerrarSesion } = useAuth();
+  const { cerrarSesion } = useAuth();
 
   return (
     <aside className="w-64 min-h-screen bg-sixx-sidebar border-r border-sixx-border flex flex-col fixed left-0 top-0">
@@ -44,25 +54,45 @@ const Sidebar = () => {
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-orange-500/15 text-white border-l-2 border-sixx-orange'
-                    : 'text-sixx-gray hover:bg-white/5 hover:text-white'
-                }`
-              }
-            >
-              <Icon className="w-5 h-5" />
-              <span className="flex-1">{item.label}</span>
-              {item.badge && (
-                <span className="bg-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  {item.badge}
-                </span>
+            <div key={item.to}>
+              <NavLink
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-orange-500/15 text-white border-l-2 border-sixx-orange'
+                      : 'text-sixx-gray hover:bg-white/5 hover:text-white'
+                  }`
+                }
+              >
+                <Icon className="w-5 h-5" />
+                <span className="flex-1">{item.label}</span>
+                {item.badge && (
+                  <span className="bg-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {item.badge}
+                  </span>
+                )}
+              </NavLink>
+              {item.subItems && (
+                <div className="ml-8 mt-1 space-y-1">
+                  {item.subItems.map((sub) => (
+                    <NavLink
+                      key={sub.to}
+                      to={sub.to}
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-lg text-xs transition-colors ${
+                          isActive
+                            ? 'text-sixx-orange font-medium'
+                            : 'text-sixx-muted hover:text-white'
+                        }`
+                      }
+                    >
+                      {sub.label}
+                    </NavLink>
+                  ))}
+                </div>
               )}
-            </NavLink>
+            </div>
           );
         })}
       </nav>
