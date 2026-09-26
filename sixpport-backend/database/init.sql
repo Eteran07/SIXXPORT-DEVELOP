@@ -99,6 +99,21 @@ CREATE TABLE novedades (
     timestamp_reporte TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ==========================================
+-- 5. REPORTES Y AUDITORÍA EXPORTABLES
+-- ==========================================
+CREATE TABLE reportes (
+    id_reporte SERIAL PRIMARY KEY,
+    nombre VARCHAR(200) NOT NULL,
+    periodo_inicio DATE NOT NULL,
+    periodo_fin DATE NOT NULL,
+    categoria VARCHAR(50) NOT NULL CHECK (categoria IN ('Accesos', 'Seguridad', 'Turnos', 'Visitas', 'General')),
+    generado_por INT REFERENCES usuarios(id_usuario),
+    estado VARCHAR(20) DEFAULT 'Procesando' CHECK (estado IN ('Listo para Descargar', 'Procesando', 'Error')),
+    ruta_archivo VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Insertar roles iniciales para poder crear el primer usuario administrador
 INSERT INTO roles (nombre, descripcion) VALUES 
 ('Gerencia', 'Acceso total al sistema y reportes'),

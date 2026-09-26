@@ -64,7 +64,7 @@ async function seedDatabase() {
 
     // 1. Limpiar tablas en orden inverso para respetar FK
     console.log('🧹 Limpiando tablas existentes...');
-    await client.query('TRUNCATE TABLE novedades, registros_acceso, pases_temporales, lista_negra, vehiculos, personas, turnos, areas_destino, usuarios, roles RESTART IDENTITY CASCADE');
+    await client.query('TRUNCATE TABLE reportes, novedades, registros_acceso, pases_temporales, lista_negra, vehiculos, personas, turnos, areas_destino, usuarios, roles RESTART IDENTITY CASCADE');
 
     // 2. Insertar roles
     console.log('👥 Insertando roles...');
@@ -201,6 +201,53 @@ async function seedDatabase() {
         `INSERT INTO novedades (id_turno, tipo_incidencia, descripcion, nivel_alerta, timestamp_reporte)
          VALUES ($1, $2, $3, $4, $5)`,
         [idTurno, n.tipo, n.descripcion, n.alerta, timestamp]
+      );
+    }
+
+    // 12. Insertar reportes exportables de ejemplo
+    console.log('📊 Insertando reportes exportables...');
+    const hoy = new Date();
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - 7);
+    const reportes = [
+      {
+        nombre: 'Consolidado de Accesos Semanal',
+        periodo_inicio: inicioSemana.toISOString().slice(0, 10),
+        periodo_fin: hoy.toISOString().slice(0, 10),
+        categoria: 'Accesos',
+        generado_por: usuariosIds[4],
+        estado: 'Listo para Descargar',
+      },
+      {
+        nombre: 'Historial Crítico de Lista Negra',
+        periodo_inicio: hoy.toISOString().slice(0, 10),
+        periodo_fin: hoy.toISOString().slice(0, 10),
+        categoria: 'Seguridad',
+        generado_por: usuariosIds[3],
+        estado: 'Listo para Descargar',
+      },
+      {
+        nombre: 'Bitácora de Novedades Turno Alfa',
+        periodo_inicio: hoy.toISOString().slice(0, 10),
+        periodo_fin: hoy.toISOString().slice(0, 10),
+        categoria: 'Turnos',
+        generado_por: usuariosIds[4],
+        estado: 'Procesando',
+      },
+      {
+        nombre: 'Auditoría Visitas Especiales Q1',
+        periodo_inicio: `${hoy.getFullYear()}-01-01`,
+        periodo_fin: `${hoy.getFullYear()}-03-31`,
+        categoria: 'Visitas',
+        generado_por: usuariosIds[1],
+        estado: 'Listo para Descargar',
+      },
+    ];
+    for (const r of reportes) {
+      await client.query(
+        `INSERT INTO reportes (nombre, periodo_inicio, periodo_fin, categoria, generado_por, estado, ruta_archivo)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [r.nombre, r.periodo_inicio, r.periodo_fin, r.categoria, r.generado_por, r.estado, `/reportes/reporte_${Date.now()}.csv`]
       );
     }
 

@@ -139,4 +139,25 @@ export const deleteConductor = async (id) => {
   return response.data;
 };
 
+// Reportes
+export const getReportesDashboard = async (params = {}) => {
+  const response = await api.get('/reportes/dashboard', { params });
+  return response.data;
+};
+
+export const getReportes = async () => {
+  const response = await api.get('/reportes');
+  return response.data;
+};
+
+export const createReporte = async (reporte) => {
+  const response = await api.post('/reportes', reporte);
+  return response.data;
+};
+
+export const downloadReporte = async (id) => {
+  const response = await api.get(`/reportes/${id}/download`, { responseType: 'blob' });
+  return response.data;
+};
+
 export default api;

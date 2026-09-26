@@ -6,6 +6,7 @@ import Usuarios from './pages/Usuarios';
 import Roles from './pages/Roles';
 import ListaNegra from './pages/ListaNegra';
 import Vehiculos from './pages/Vehiculos';
+import Reportes from './pages/Reportes';
 
 const RutaProtegida = ({ children }) => {
   const { autenticado, cargando } = useAuth();
@@ -69,6 +70,14 @@ function App() {
             element={
               <RutaProtegida>
                 <Vehiculos />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/reportes"
+            element={
+              <RutaProtegida>
+                <Reportes />
               </RutaProtegida>
             }
           />
