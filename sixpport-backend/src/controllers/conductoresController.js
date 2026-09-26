@@ -2,9 +2,29 @@ const pool = require('../config/db');
 
 const getConductores = async (req, res) => {
     try {
-        const result = await pool.query(
-            "SELECT * FROM personas WHERE categoria = 'Contratista' OR categoria = 'Trabajador' ORDER BY id_persona ASC"
-        );
+        const result = await pool.query(`
+            SELECT
+                p.*,
+                ultimo_acceso.placa AS patente_asociada,
+                ultimo_acceso.tipo_movimiento AS ultimo_movimiento,
+                ultimo_acceso.timestamp_registro AS ultimo_ingreso,
+                CASE
+                    WHEN ultimo_acceso.tipo_movimiento = 'Entrada' THEN 'Dentro de Sede'
+                    WHEN ultimo_acceso.tipo_movimiento = 'Salida' THEN 'Fuera'
+                    ELSE 'No registra'
+                END AS estado_en_sede
+            FROM personas p
+            LEFT JOIN LATERAL (
+                SELECT ra.id_registro, ra.tipo_movimiento, ra.timestamp_registro, v.placa
+                FROM registros_acceso ra
+                LEFT JOIN vehiculos v ON ra.id_vehiculo = v.id_vehiculo
+                WHERE ra.id_persona = p.id_persona
+                ORDER BY ra.timestamp_registro DESC
+                LIMIT 1
+            ) ultimo_acceso ON true
+            WHERE p.categoria = 'Contratista' OR p.categoria = 'Trabajador'
+            ORDER BY p.id_persona ASC
+        `);
         res.json(result.rows);
     } catch (error) {
         console.error('Error al consultar conductores:', error);
@@ -15,7 +35,28 @@ const getConductores = async (req, res) => {
 const getConductorById = async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await pool.query('SELECT * FROM personas WHERE id_persona = $1', [id]);
+        const result = await pool.query(`
+            SELECT
+                p.*,
+                ultimo_acceso.placa AS patente_asociada,
+                ultimo_acceso.tipo_movimiento AS ultimo_movimiento,
+                ultimo_acceso.timestamp_registro AS ultimo_ingreso,
+                CASE
+                    WHEN ultimo_acceso.tipo_movimiento = 'Entrada' THEN 'Dentro de Sede'
+                    WHEN ultimo_acceso.tipo_movimiento = 'Salida' THEN 'Fuera'
+                    ELSE 'No registra'
+                END AS estado_en_sede
+            FROM personas p
+            LEFT JOIN LATERAL (
+                SELECT ra.id_registro, ra.tipo_movimiento, ra.timestamp_registro, v.placa
+                FROM registros_acceso ra
+                LEFT JOIN vehiculos v ON ra.id_vehiculo = v.id_vehiculo
+                WHERE ra.id_persona = p.id_persona
+                ORDER BY ra.timestamp_registro DESC
+                LIMIT 1
+            ) ultimo_acceso ON true
+            WHERE p.id_persona = $1
+        `, [id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Conductor no encontrado' });
         }
