@@ -22,9 +22,9 @@ const usuarios = [
 ];
 
 const areasDestino = [
-  { nombre: 'Norte-Alamar', descripcion: 'Sede principal de operaciones norte' },
+  { nombre: 'Garita 1 (Acceso Norte)', descripcion: 'Acceso principal vehicular y peatonal norte' },
+  { nombre: 'Garita 2 (Bahía Logística)', descripcion: 'Control de carga y descarga logística' },
   { nombre: 'Corporativa Central', descripcion: 'Oficinas administrativas centrales' },
-  { nombre: 'Multisede', descripcion: 'Sede logística multiservicios' },
   { nombre: 'Sur-Industrial', descripcion: 'Planta industrial sur' },
   { nombre: 'Este-Logística', descripcion: 'Centro de distribución este' },
 ];
@@ -169,16 +169,20 @@ async function seedDatabase() {
       );
     }
 
-    // 10. Insertar registros de acceso
+    // 10. Insertar registros de acceso (datos de hoy para que el dashboard de reportes muestre información)
     console.log('📝 Insertando registros de acceso...');
     const movimientos = ['Entrada', 'Salida'];
-    for (let i = 0; i < 8; i++) {
+    // Peso mayor para Garita 1 y Garita 2 para reflejar el diseño de reportes
+    const areaWeights = [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4];
+    for (let i = 0; i < 40; i++) {
       const idPersona = personasIds[i % personasIds.length];
-      const idVehiculo = i % 2 === 0 ? vehiculosIds[i % vehiculosIds.length] : null;
+      const idVehiculo = i % 3 === 0 ? vehiculosIds[i % vehiculosIds.length] : null;
       const idTurno = turnosIds[i % turnosIds.length];
-      const idArea = areasIds[i % areasIds.length];
+      const idArea = areasIds[areaWeights[i % areaWeights.length] % areasIds.length];
       const movimiento = movimientos[i % 2];
-      const timestamp = fecha(Math.floor(Math.random() * 2), 7 + i, 15);
+      const hora = 6 + Math.floor(Math.random() * 14);
+      const minuto = Math.floor(Math.random() * 60);
+      const timestamp = fecha(0, hora, minuto);
       await client.query(
         `INSERT INTO registros_acceso (id_persona, id_vehiculo, id_turno, tipo_movimiento, id_area_destino, timestamp_registro)
          VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -262,7 +266,7 @@ async function seedDatabase() {
     console.log(`   • ${vehiculos.length} vehículos`);
     console.log(`   • ${listaNegra.length} registros en lista negra`);
     console.log(`   • 4 pases temporales`);
-    console.log(`   • 8 registros de acceso`);
+    console.log(`   • 40 registros de acceso`);
     console.log(`   • ${novedades.length} novedades`);
     console.log(`\n🔑 Credenciales de prueba:`);
     console.log(`   Email: ${usuarios[0].email}`);
